@@ -1,13 +1,10 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:home_smart/model/geofence.dart';
 
 class LocationSensorManager {
   final GeolocatorPlatform _geolocatorPlatform = GeolocatorPlatform.instance;
   Position? _currentPosition;
-
-  // Define the geofence area (e.g., your home)
-  final double homeLatitude = 37.7749; // Replace with your desired latitude
-  final double homeLongitude = -122.4194; // Replace with your desired longitude
-  final double geofenceRadius = 100.0; // Radius in meters
+  final List<Geofence> _geofences = [];
 
   Stream<Position> get locationStream =>
       _geolocatorPlatform.getPositionStream();
@@ -37,14 +34,28 @@ class LocationSensorManager {
 
   void dispose() {}
 
-  bool isInsideGeofence(Position position) {
-    double distance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      homeLatitude,
-      homeLongitude,
-    );
+  void addGeofence(Geofence geofence) {
+    _geofences.add(geofence);
+  }
 
-    return distance <= geofenceRadius;
+  void clearGeofences() {
+    _geofences.clear();
+  }
+
+  bool isInsideGeofence(Position position) {
+    for (final geofence in _geofences) {
+      double distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        geofence.latitude,
+        geofence.longitude,
+      );
+
+      if (distance <= geofence.radius) {
+        return true; // Inside a geofence
+      }
+    }
+
+    return false; // Outside all geofences
   }
 }

@@ -1,9 +1,8 @@
-//
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:home_smart/sensors/light_sensor_manager.dart';
-
 import 'package:screen_brightness/screen_brightness.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 class LightSensorView extends StatefulWidget {
   const LightSensorView({Key? key}) : super(key: key);
@@ -16,6 +15,9 @@ class _LightSensorViewState extends State<LightSensorView> {
   final LightSensorManager _lightSensorManager = LightSensorManager();
   double _currentLightLevel = 0.0;
   final ScreenBrightness _screenBrightness = ScreenBrightness();
+  final List<FlSpot> _lightLevelData = [];
+  bool _shouldUpdateChart = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,11 +32,12 @@ class _LightSensorViewState extends State<LightSensorView> {
 
   Future<void> _initSensor() async {
     try {
-      // Platform-specific code to start listening to ambient light sensor data
-      // _lightSensorManager.startListening();
       _lightSensorManager.lightLevelStream.listen((lightLevel) {
         setState(() {
           _currentLightLevel = lightLevel;
+          _lightLevelData
+              .add(FlSpot(_lightLevelData.length.toDouble(), lightLevel));
+          _shouldUpdateChart = true;
         });
         _adjustScreenBrightness(lightLevel);
       });
@@ -45,13 +48,11 @@ class _LightSensorViewState extends State<LightSensorView> {
 
   void _adjustScreenBrightness(double lightLevel) {
     try {
-      // Adjust screen brightness based on light level
       _screenBrightness.setScreenBrightness(
-          lightLevel / 100); // Scale light level to 0-1 range
+        lightLevel / 100, // Scale light level to 0-1 range
+      );
     } on PlatformException catch (e) {
-      // Handle PlatformException
       print("Failed to set screen brightness: ${e.message}");
-      // You can show a snackbar, toast, or any other UI feedback to inform the user about the failure
     }
   }
 
@@ -60,12 +61,33 @@ class _LightSensorViewState extends State<LightSensorView> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        AspectRatio(
+          aspectRatio: 1.7,
+          child: LineChart(
+            LineChartData(
+              lineBarsData: [
+                LineChartBarData(
+                  spots: _shouldUpdateChart ? _lightLevelData : [],
+                  isCurved: true,
+                  color: Colors.blue,
+                  barWidth: 2,
+                  isStrokeCapRound: true,
+                  dotData: FlDotData(
+                    show: false,
+                  ),
+                  belowBarData: BarAreaData(
+                    show: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         Slider(
           value: _currentLightLevel,
           min: 0,
           max: 100,
           onChanged: (newValue) {
-            // You can optionally allow users to manually adjust the light level using the slider
             _adjustScreenBrightness(newValue);
           },
         ),

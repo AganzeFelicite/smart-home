@@ -1,30 +1,69 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
 
-class MotionSensorManager {
-  bool _isMotionDetected = false;
+class MotionDetector {
+  final double shakeThresholdGravity;
+  final int shakeSlopTimeMS;
+  final int shakeCountResetTime;
+  final int minimumShakeCount;
 
-  // Expose a stream of boolean values indicating motion detection
-  Stream<bool> get motionDetectionStream => accelerometerEventStream()
-      .map((event) => _detectMotion(event.x, event.y, event.z))
-      .distinct();
+  final StreamController<bool> _motionDetectionController =
+      StreamController<bool>.broadcast();
 
-  bool get isMotionDetected => _isMotionDetected;
+  int _shakeTimestamp = DateTime.now().millisecondsSinceEpoch;
+  int _shakeCount = 0;
+  StreamSubscription? _streamSubscription;
 
-  bool _detectMotion(double x, double y, double z) {
-    // Implement your motion detection algorithm here
-    // Example: Detect if the acceleration values exceed a certain threshold
-    const threshold = 1.0; // Adjust this value as needed
-    if (x.abs() > threshold || y.abs() > threshold || z.abs() > threshold) {
-      _isMotionDetected = true;
-      return true;
-    }
-    _isMotionDetected = false;
-    return false;
+  MotionDetector({
+    this.shakeThresholdGravity = 2.7,
+    this.shakeSlopTimeMS = 500,
+    this.shakeCountResetTime = 3000,
+    this.minimumShakeCount = 1,
+  });
+
+  Stream<bool> get motionDetectionStream => _motionDetectionController.stream;
+
+  void startListening() {
+    _streamSubscription = accelerometerEventStream().listen(
+      (AccelerometerEvent event) {
+        double x = event.x;
+        double y = event.y;
+        double z = event.z;
+
+        double gX = x / 9.80665;
+        double gY = y / 9.80665;
+        double gZ = z / 9.80665;
+
+        double gForce = sqrt(gX * gX + gY * gY + gZ * gZ);
+
+        if (gForce > shakeThresholdGravity) {
+          var now = DateTime.now().millisecondsSinceEpoch;
+          if (_shakeTimestamp + shakeSlopTimeMS > now) {
+            return;
+          }
+
+          if (_shakeTimestamp + shakeCountResetTime < now) {
+            _shakeCount = 0;
+          }
+
+          _shakeTimestamp = now;
+          _shakeCount++;
+
+          if (_shakeCount >= minimumShakeCount) {
+            _motionDetectionController.add(true);
+          }
+        }
+      },
+      cancelOnError: true,
+      onError: (error) {
+        print('Error: $error');
+      },
+    );
   }
 
-  void dispose() {
-    // No need to manually stop the accelerometerEventStream
-    // The sensors_plus package manages the lifecycle of the streams
+  void stopListening() {
+    _streamSubscription?.cancel();
+    _motionDetectionController.close();
   }
 }
