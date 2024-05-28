@@ -51,11 +51,10 @@ class _LocationSensorViewState extends State<LocationSensorView> {
       ),
       Geofence(
         id: 'office',
-        latitude: 37.7749,
-        longitude: -122.4194,
+        latitude: -1.95554,
+        longitude: 30.104281,
         radius: 200.0,
       ),
-      // Add more geofences if needed
     ];
 
     Navigator.push(
